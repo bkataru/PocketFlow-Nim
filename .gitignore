@@ -43,7 +43,10 @@ tests/test_checkpoint.json
 *.bak
 
 # Large generated files
-repomix-output.xml
+# TODO: we need this for now
+# uncomment and ignore this later
+# use git rm --cached
+# repomix-output.xml
 
 # OS specific
 Thumbs.db
