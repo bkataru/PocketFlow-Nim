@@ -1,0 +1,60 @@
+# Nim compiled files
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+*.ilk
+*.obj
+*.o
+*.a
+
+# Nim cache directories
+nimcache/
+htmldocs/
+
+# Documentation output
+docs/
+
+# Test output files
+tests/*.exe
+tests/*.pdb
+tests/test_state.json
+tests/test_checkpoint.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Large generated files
+repomix-output.xml
+
+# OS specific
+Thumbs.db
+Desktop.ini
+
+# Build artifacts
+build/
+dist/
+*.zip
+*.tar.gz
+
+# Dependencies (if using external tools)
+node_modules/
+vendor/

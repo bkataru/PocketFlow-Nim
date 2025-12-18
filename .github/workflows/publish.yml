@@ -1,0 +1,29 @@
+name: Publish to Nimble
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Nim
+      uses: jiro4989/setup-nim-action@v1
+      with:
+        nim-version: 'stable'
+    
+    - name: Run tests
+      run: nimble test
+    
+    - name: Generate docs
+      run: nimble docs
+    
+    - name: Publish to Nimble
+      env:
+        NIMBLE_TOKEN: ${{ secrets.NIMBLE_TOKEN }}
+      run: |
+        echo "Package ready for Nimble publication"
+        # Manual publication to Nimble is typically done via PR to nim-lang/packages

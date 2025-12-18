@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        nim-version: ['2.0.0', 'stable']
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Nim
+      uses: jiro4989/setup-nim-action@v1
+      with:
+        nim-version: ${{ matrix.nim-version }}
+    
+    - name: Install dependencies
+      run: nimble install -y
+    
+    - name: Run tests
+      run: nimble test
+    
+    - name: Build examples
+      run: nimble examples
+  
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Nim
+      uses: jiro4989/setup-nim-action@v1
+      with:
+        nim-version: 'stable'
+    
+    - name: Generate documentation
+      run: nimble docs
+    
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs
+  
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Nim
+      uses: jiro4989/setup-nim-action@v1
+      with:
+        nim-version: 'stable'
+    
+    - name: Check formatting
+      run: |
+        for file in $(find src tests examples -name "*.nim"); do
+          nim check $file
+        done
