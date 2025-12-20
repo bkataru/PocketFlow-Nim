@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -12,57 +12,74 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        nim-version: ['2.0.0', 'stable']
-    
+        nim-version: ["2.0.0", "stable"]
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Nim
-      uses: jiro4989/setup-nim-action@v1
-      with:
-        nim-version: ${{ matrix.nim-version }}
-    
-    - name: Install dependencies
-      run: nimble install -y
-    
-    - name: Run tests
-      run: nimble test
-    
-    - name: Build examples
-      run: nimble examples
-  
+      - uses: actions/checkout@v3
+
+      - name: Setup Nim
+        uses: jiro4989/setup-nim-action@v1
+        with:
+          nim-version: ${{ matrix.nim-version }}
+
+      - name: Install dependencies
+        run: nimble install -y
+
+      - name: Run tests
+        run: nimble test
+
+      - name: Build examples
+        run: nimble examples
+
   docs:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Nim
-      uses: jiro4989/setup-nim-action@v1
-      with:
-        nim-version: 'stable'
-    
-    - name: Generate documentation
-      run: nimble docs
-    
-    - name: Deploy to GitHub Pages
-      if: github.ref == 'refs/heads/main'
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs
-  
+      - uses: actions/checkout@v3
+
+      - name: Setup Nim
+        uses: jiro4989/setup-nim-action@v1
+        with:
+          nim-version: "stable"
+
+      - name: Install dependencies
+        run: nimble install -y
+
+      - name: Generate documentation
+        run: |
+          mkdir -p docs
+          nim doc --outdir:docs src/pocketflow.nim
+          nim doc --outdir:docs src/pocketflow/context.nim
+          nim doc --outdir:docs src/pocketflow/node.nim
+          nim doc --outdir:docs src/pocketflow/flow.nim
+          nim doc --outdir:docs src/pocketflow/llm.nim
+          nim doc --outdir:docs src/pocketflow/errors.nim
+          nim doc --outdir:docs src/pocketflow/cache.nim
+          nim doc --outdir:docs src/pocketflow/tokens.nim
+          nim doc --outdir:docs src/pocketflow/observability.nim
+          nim doc --outdir:docs src/pocketflow/rag.nim
+          nim doc --outdir:docs src/pocketflow/advanced_nodes.nim
+          nim doc --outdir:docs src/pocketflow/persistence.nim
+          nim doc --outdir:docs src/pocketflow/benchmark.nim
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Nim
-      uses: jiro4989/setup-nim-action@v1
-      with:
-        nim-version: 'stable'
-    
-    - name: Check formatting
-      run: |
-        for file in $(find src tests examples -name "*.nim"); do
-          nim check $file
-        done
+      - uses: actions/checkout@v3
+
+      - name: Setup Nim
+        uses: jiro4989/setup-nim-action@v1
+        with:
+          nim-version: "stable"
+
+      - name: Check formatting
+        run: |
+          for file in $(find src tests examples -name "*.nim"); do
+            nim check $file
+          done

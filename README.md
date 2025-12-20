@@ -35,7 +35,7 @@ A powerful, production-ready flow-based agent framework for Nim with advanced LL
 - 🔁 **LoopNode** - Iteration with result aggregation
 - 🗺️ **MapNode** - Concurrent mapping operations
 - 📈 **Observability** - Structured logging, metrics, and tracing
-- 💾 **State persistence** - Save and restore flow state (planned)
+- 💾 **State persistence** - Save and restore flow state
 
 ## 🚀 Quick Start
 
@@ -57,17 +57,50 @@ requires "pocketflow >= 0.2.0"
 import asyncdispatch, json
 import pocketflow
 
-let ctx = newPfContext()
-let llm = newLlmClient(provider = OpenAI, apiKey = "your-api-key")
-
-let node = newNode(
-  exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
-    let response = await llm.generate("Tell me a fun fact!")
-    return %response
+let step1 = newNode(
+  exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+    ctx["message"] = %"Hello from PocketFlow!"
+    return %"done"
 )
 
-let flow = newFlow(node)
+let step2 = newNode(
+  exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+    echo ctx["message"].getStr()
+    return %"complete"
+)
+
+# Chain nodes with >> operator
+discard step1 >> step2
+
+let flow = newFlow(step1)
+let ctx = newPfContext()
 waitFor flow.internalRun(ctx)
+```
+
+### LLM Example
+
+```nim
+import asyncdispatch, json, os
+import pocketflow
+
+let llm = newLlmClient(
+  provider = OpenAI,
+  apiKey = getEnv("OPENAI_API_KEY"),
+  model = "gpt-4"
+)
+
+let chatNode = newNode(
+  exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+    let response = await llm.chat(ctx["prompt"].getStr())
+    ctx["response"] = %response
+    return %"done"
+)
+
+let flow = newFlow(chatNode)
+let ctx = newPfContext()
+ctx["prompt"] = %"Tell me a fun fact!"
+waitFor flow.internalRun(ctx)
+echo ctx["response"].getStr()
 ```
 
 ### RAG Example
@@ -76,19 +109,17 @@ waitFor flow.internalRun(ctx)
 import pocketflow
 
 # Chunk document
-let chunks = chunkDocument(document, newChunkingOptions())
+let document = readFile("document.txt")
+let opts = newChunkingOptions(strategy = Sentences, chunkSize = 500)
+var chunks = chunkDocument(document, opts)
 
-# Generate embeddings
-let llm = newLlmClient(provider = OpenAI, apiKey = apiKey)
-let embeddings = await llm.embeddings(chunks.mapIt(it.text))
+# Search with embeddings
+let queryEmbedding = @[0.1, 0.5, 0.3]
+let topChunks = findTopK(queryEmbedding, chunks, k = 3)
 
-# Search and retrieve
-let queryEmbed = (await llm.embeddings(@[query]))[0]
-let topChunks = findTopK(queryEmbed, chunks, k = 3)
-
-# Generate answer
-let context = topChunks.mapIt(it.chunk.text).join("\n\n")
-let answer = await llm.generate("Based on: " & context & "\n\nQ: " & query)
+# Rerank results
+let reranked = rerankChunks(chunks, "search query")
+echo "Top result: ", topChunks[0].chunk.text
 ```
 
 ## 📚 Documentation
@@ -103,14 +134,14 @@ Nodes are the building blocks of workflows. Each node has three phases:
 
 ```nim
 let node = newNode(
-  prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async.} =
+  prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
     return %42
   ,
-  exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+  exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
     let value = prepRes.getInt()
     return %(value * 2)
   ,
-  post = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async.} =
+  post = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async, closure, gcsafe.} =
     return "next_step"
   ,
   maxRetries = 3,
@@ -118,38 +149,41 @@ let node = newNode(
 )
 ```
 
+> **Note**: Always use `{.async, closure, gcsafe.}` pragmas for callback procs.
+
 #### Flows
 Flows orchestrate node execution:
 
 ```nim
-# Linear flow
-let flow = newFlow(node1 >> node2 >> node3)
+# Linear flow with >> operator
+discard node1 >> node2 >> node3
+let flow = newFlow(node1)
 
-# Branching flow
-node1
-  .next("success", successNode)
-  .next("error", errorNode)
-
-# Or with operators
-(node1 - "success") >> successNode >> (node1 - "error") >> errorNode
+# Branching flow with - operator
+discard router - "success" >> successNode
+discard router - "error" >> errorNode
+let branchFlow = newFlow(router)
 ```
 
 #### Batch Processing
 
 ```nim
 let batchNode = newBatchNode(
-  prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async.} =
-    return %*["item1", "item2", "item3"]
+  prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+    return %[%"item1", %"item2", %"item3"]
   ,
-  execItem = proc(ctx: PfContext, params: JsonNode, item: JsonNode): Future[JsonNode] {.async.} =
-    # Process each item
-    return %(item.getStr().toUpper())
+  execItem = proc(ctx: PfContext, params: JsonNode, item: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+    return %(item.getStr().toUpperAscii())
+  ,
+  post = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async, closure, gcsafe.} =
+    ctx["results"] = execRes
+    return "done"
 )
 
 # Parallel processing with concurrency limit
 let parallelNode = newParallelBatchNode(
-  prep = proc(...): Future[JsonNode] {.async.} = ...,
-  execItem = proc(...): Future[JsonNode] {.async.} = ...,
+  prep = ...,
+  execItem = ...,
   maxConcurrency = 5
 )
 ```
@@ -198,32 +232,39 @@ let llm = newLlmClient(
 ### Cost Tracking
 
 ```nim
-# Automatic cost tracking
-let response = await llm.generate("Hello")
+let tracker = newCostTracker()
+let llm = newLlmClient(
+  provider = OpenAI,
+  apiKey = apiKey,
+  costTracker = tracker
+)
+
+# Use the client...
+let response = await llm.chat("Hello")
 
 # Get summary
-echo globalCostTracker.getSummary().pretty()
-# {
-#   "total_input_tokens": 10,
-#   "total_output_tokens": 50,
-#   "total_cost_usd": 0.00015,
-#   ...
-# }
+let summary = tracker.getSummary()
+echo "Total cost: $", summary["total_cost_usd"].getFloat()
 ```
 
 ### Caching
 
 ```nim
-# Automatic caching (enabled by default)
-let response1 = await llm.generate("Same prompt")  # API call
-let response2 = await llm.generate("Same prompt")  # Cached!
+let cache = newCache()
+let llm = newLlmClient(
+  provider = OpenAI,
+  apiKey = apiKey,
+  cache = cache
+)
 
-# Manual cache control
-let options = LlmOptions(useCache: false)
-let response = await llm.chatWithOptions(messages, options)
+# First call hits API
+let response1 = await llm.chat("Same prompt")
 
-# Clear cache
-globalCache.clear()
+# Second call returns cached result
+let response2 = await llm.chat("Same prompt")
+
+# Clear cache when needed
+cache.clear()
 ```
 
 ### Advanced Nodes
@@ -232,8 +273,8 @@ globalCache.clear()
 
 ```nim
 let conditional = newConditionalNode(
-  condition = proc(ctx: PfContext, params: JsonNode): Future[bool] {.async.} =
-    return params["score"].getInt() > 80
+  condition = proc(ctx: PfContext, params: JsonNode): Future[bool] {.async, closure, gcsafe.} =
+    return ctx["score"].getInt() > 80
   ,
   trueNode = highScoreNode,
   falseNode = lowScoreNode
@@ -244,13 +285,15 @@ let conditional = newConditionalNode(
 
 ```nim
 let loop = newLoopNode(
-  items = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async.} =
-    return %*[1, 2, 3, 4, 5]
+  items = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+    return %[%1, %2, %3, %4, %5]
   ,
   body = processItemNode,
   maxIterations = 100,
   aggregateResults = true
 )
+# Access current item via ctx["__loop_item__"]
+# Access current index via ctx["__loop_index__"]
 ```
 
 #### Timeout Node
@@ -262,6 +305,34 @@ let timeout = newTimeoutNode(
 )
 ```
 
+#### Map Node
+
+```nim
+let mapNode = newMapNode(
+  mapFunc = proc(ctx: PfContext, item: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+    return %(item.getInt() * 2)
+  ,
+  maxConcurrency = 3
+)
+# Set items via ctx["__map_items__"]
+# Results stored in ctx["__map_results__"]
+```
+
+### State Persistence
+
+```nim
+let store = newStateStore(".pocketflow_state")
+
+# Capture and save state
+let state = captureState(ctx, "my_flow", %*{"version": "1.0"})
+saveState(store, state)
+
+# Load and restore state
+let loadedState = loadState(store, "my_flow")
+let restoredCtx = newPfContext()
+restoreContext(restoredCtx, loadedState)
+```
+
 ### Observability
 
 ```nim
@@ -271,10 +342,11 @@ logStructured(Info, "Processing started", [("user_id", "123")])
 # Metrics
 recordMetric("requests_processed", 1.0, [("status", "success")])
 
-# Tracing
-withSpan("expensive_operation"):
-  # Your code here
-  discard await someOperation()
+# Tracing with spans
+let span = newSpan("expensive_operation")
+# ... do work ...
+finish(span)
+echo "Duration: ", getDurationMs(span), "ms"
 
 # Get metrics summary
 echo getMetricsSummary().pretty()
@@ -287,11 +359,13 @@ See the [`examples/`](examples/) directory for complete examples:
 - [`simple_chat.nim`](examples/simple_chat.nim) - Basic LLM integration
 - [`rag_example.nim`](examples/rag_example.nim) - Full RAG pipeline
 - [`advanced_flow.nim`](examples/advanced_flow.nim) - Advanced features demo
+- [`multi_provider.nim`](examples/multi_provider.nim) - Multiple LLM providers
+- [`benchmarks.nim`](examples/benchmarks.nim) - Performance benchmarks
 
 ## 🧪 Testing
 
 ```bash
-# Run unit tests
+# Run all unit tests
 nimble test
 
 # Run live LLM tests (requires API keys)
@@ -300,6 +374,8 @@ nimble testlive
 # Build examples
 nimble examples
 ```
+
+**Test Coverage**: 126 tests across 14 test files covering all modules.
 
 ## 🏗️ Architecture
 
@@ -315,10 +391,12 @@ PocketFlow-Nim/
 │   ├── tokens.nim           # Cost tracking
 │   ├── observability.nim    # Logging & metrics
 │   ├── rag.nim              # RAG utilities
-│   └── advanced_nodes.nim   # Advanced node types
-├── tests/
-├── examples/
-└── docs/
+│   ├── advanced_nodes.nim   # Advanced node types
+│   ├── persistence.nim      # State persistence
+│   └── benchmark.nim        # Benchmarking utilities
+├── tests/                   # 126 unit tests
+├── examples/                # Example applications
+└── docs/                    # Documentation
 ```
 
 ## 🤝 Contributing
@@ -342,17 +420,18 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🗺️ Roadmap
 
-- [x] Core framework
-- [x] Multiple LLM providers
-- [x] RAG capabilities
-- [x] Advanced nodes
-- [x] Observability
+- [x] Core framework (Node, BatchNode, ParallelBatchNode)
+- [x] Flow orchestration (Flow, BatchFlow, ParallelBatchFlow)
+- [x] Multiple LLM providers (OpenAI, Anthropic, Google, Ollama)
+- [x] RAG capabilities (chunking, similarity, retrieval, reranking)
+- [x] Advanced nodes (Conditional, Loop, Timeout, Map)
+- [x] Observability (logging, metrics, tracing)
+- [x] State persistence (save, load, restore)
+- [x] Comprehensive test suite (126 tests)
 - [ ] WebSocket streaming
 - [ ] GraphQL API
 - [ ] Vector database integrations
 - [ ] Multi-agent orchestration
-- [ ] State persistence
-- [ ] Performance benchmarks
 
 ---
 

@@ -2,7 +2,7 @@
 ##
 ## Provides conditional, loop, timeout, and other specialized node types.
 
-import asyncdispatch, json, times
+import asyncdispatch, json
 import context, node, errors
 
 type
@@ -11,19 +11,19 @@ type
     conditionFunc*: proc(ctx: PfContext, params: JsonNode): Future[bool] {.gcsafe.}
     trueNode*: BaseNode
     falseNode*: BaseNode
-  
+
   LoopNode* = ref object of BaseNode
     ## Node that loops over items
     itemsFunc*: proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.gcsafe.}  # Returns JArray
     bodyNode*: BaseNode
     maxIterations*: int
     aggregateResults*: bool
-  
+
   TimeoutNode* = ref object of BaseNode
     ## Wraps a node with timeout protection
     innerNode*: BaseNode
     timeoutMs*: int
-  
+
   MapNode* = ref object of BaseNode
     ## Maps a function over a collection
     mapFunc*: proc(ctx: PfContext, item: JsonNode): Future[JsonNode] {.gcsafe.}
@@ -43,9 +43,9 @@ proc newConditionalNode*(
 
 method internalRun*(node: ConditionalNode, ctx: PfContext): Future[string] {.async, gcsafe.} =
   let conditionResult = await node.conditionFunc(ctx, node.params)
-  
+
   let nextNode = if conditionResult: node.trueNode else: node.falseNode
-  
+
   if nextNode != nil:
     return await nextNode.internalRun(ctx)
   else:
@@ -67,37 +67,37 @@ proc newLoopNode*(
 
 method internalRun*(node: LoopNode, ctx: PfContext): Future[string] {.async, gcsafe.} =
   let items = await node.itemsFunc(ctx, node.params)
-  
+
   if items.kind != JArray:
     raise newException(ValidationError, "Loop items must be a JArray")
-  
+
   var results = newJArray()
   var iterations = 0
-  
+
   for item in items:
     if iterations >= node.maxIterations:
       break
-    
+
     # Set current item in context
     ctx["__loop_item__"] = item
     ctx["__loop_index__"] = %iterations
-    
+
     # Run body node
     let action = await node.bodyNode.internalRun(ctx)
-    
+
     if node.aggregateResults:
       # Collect results from context or use action
       if ctx.hasKey("__loop_result__"):
         results.add(ctx["__loop_result__"])
       else:
         results.add(%action)
-    
+
     iterations += 1
-  
+
   # Store aggregated results
   if node.aggregateResults:
     ctx["__loop_results__"] = results
-  
+
   ctx["__loop_iterations__"] = %iterations
   return DefaultAction
 
@@ -109,13 +109,12 @@ proc newTimeoutNode*(innerNode: BaseNode, timeoutMs: int): TimeoutNode =
   result.timeoutMs = timeoutMs
 
 method internalRun*(node: TimeoutNode, ctx: PfContext): Future[string] {.async, gcsafe.} =
-  let startTime = getTime()
   let timeoutFuture = sleepAsync(node.timeoutMs)
   let executionFuture = node.innerNode.internalRun(ctx)
-  
+
   # Race between execution and timeout
   await executionFuture or timeoutFuture
-  
+
   if executionFuture.finished:
     return await executionFuture
   else:
@@ -138,27 +137,27 @@ method internalRun*(node: MapNode, ctx: PfContext): Future[string] {.async, gcsa
   # Expect items in context under "__map_items__" key
   if not ctx.hasKey("__map_items__"):
     raise newException(ValidationError, "MapNode requires __map_items__ in context")
-  
+
   let items = ctx["__map_items__"]
-  
+
   if items.kind != JArray:
     raise newException(ValidationError, "MapNode items must be a JArray")
-  
+
   var results = newJArray()
-  
+
   if node.maxConcurrency > 0:
     # Limited concurrency
     var currentFutures: seq[Future[JsonNode]] = @[]
-    
+
     for item in items:
       currentFutures.add(node.mapFunc(ctx, item))
-      
+
       if currentFutures.len >= node.maxConcurrency:
         let chunkResults = await all(currentFutures)
         for r in chunkResults:
           results.add(r)
         currentFutures = @[]
-    
+
     if currentFutures.len > 0:
       let chunkResults = await all(currentFutures)
       for r in chunkResults:
@@ -168,6 +167,6 @@ method internalRun*(node: MapNode, ctx: PfContext): Future[string] {.async, gcsa
     for item in items:
       let result = await node.mapFunc(ctx, item)
       results.add(result)
-  
+
   ctx["__map_results__"] = results
   return DefaultAction

@@ -1,0 +1,82 @@
+[
+  {
+    "name": "Simple Node",
+    "iterations": 1000,
+    "total_time_ms": 4.684,
+    "avg_time_ms": 0.004428000000000001,
+    "min_time_ms": 0.002999999999999531,
+    "max_time_ms": 0.025000000000000716,
+    "std_dev_ms": 0.0010866535786533125,
+    "throughput_ops_sec": 213492.7412467976
+  },
+  {
+    "name": "Complex Node (prep+exec+post)",
+    "iterations": 1000,
+    "total_time_ms": 9.129999999999997,
+    "avg_time_ms": 0.008882000000000015,
+    "min_time_ms": 0.007999999999997592,
+    "max_time_ms": 0.040000000000000105,
+    "std_dev_ms": 0.0017759718466236946,
+    "throughput_ops_sec": 109529.02519167583
+  },
+  {
+    "name": "BatchNode (10 items)",
+    "iterations": 100,
+    "total_time_ms": 2.491,
+    "avg_time_ms": 0.02466000000000005,
+    "min_time_ms": 0.023000000000002185,
+    "max_time_ms": 0.03699999999999884,
+    "std_dev_ms": 0.0017217433025859736,
+    "throughput_ops_sec": 40144.520272982736
+  },
+  {
+    "name": "ParallelBatch (unlimited)",
+    "iterations": 50,
+    "total_time_ms": 5.698999999999999,
+    "avg_time_ms": 0.11307999999999999,
+    "min_time_ms": 0.08199999999999874,
+    "max_time_ms": 1.287,
+    "std_dev_ms": 0.1678246513477683,
+    "throughput_ops_sec": 8773.469029654327
+  },
+  {
+    "name": "ParallelBatch (limit=3)",
+    "iterations": 50,
+    "total_time_ms": 5.881000000000005,
+    "avg_time_ms": 0.11533999999999991,
+    "min_time_ms": 0.10299999999999893,
+    "max_time_ms": 0.13699999999999823,
+    "std_dev_ms": 0.00786284935630814,
+    "throughput_ops_sec": 8501.955449753437
+  },
+  {
+    "name": "Linear Flow (3 nodes)",
+    "iterations": 500,
+    "total_time_ms": 4.2500000000000036,
+    "avg_time_ms": 0.008267999999999992,
+    "min_time_ms": 0.006999999999993123,
+    "max_time_ms": 0.03700000000000231,
+    "std_dev_ms": 0.0016112653412769283,
+    "throughput_ops_sec": 117647.05882352931
+  },
+  {
+    "name": "ConditionalNode",
+    "iterations": 1000,
+    "total_time_ms": 7.877999999999997,
+    "avg_time_ms": 0.007604999999999922,
+    "min_time_ms": 0.006999999999993123,
+    "max_time_ms": 0.026999999999999247,
+    "std_dev_ms": 0.001070035046155014,
+    "throughput_ops_sec": 126935.770500127
+  },
+  {
+    "name": "LoopNode (5 iterations)",
+    "iterations": 200,
+    "total_time_ms": 6.788000000000002,
+    "avg_time_ms": 0.033604999999999885,
+    "min_time_ms": 0.03099999999999631,
+    "max_time_ms": 0.07299999999999668,
+    "std_dev_ms": 0.003888312616032356,
+    "throughput_ops_sec": 29463.75957572185
+  }
+]

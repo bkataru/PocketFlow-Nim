@@ -24,7 +24,7 @@ proc main() {.async.} =
   
   # Create a simple chat node
   let chatNode = newNode(
-    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       echo "Asking LLM..."
       let response = await llm.generate("Tell me an interesting fact about the Nim programming language")
       echo "\nLLM Response:"

@@ -12,7 +12,7 @@ proc runBenchmarks() {.async.} =
   
   # Benchmark 1: Simple node execution
   let simpleNode = newNode(
-    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       return %(42 * 2)
   )
   
@@ -20,16 +20,16 @@ proc runBenchmarks() {.async.} =
   
   # Benchmark 2: Node with prep and post
   let complexNode = newNode(
-    prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async.} =
+    prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       return %*[1, 2, 3, 4, 5]
     ,
-    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       var sum = 0
       for item in prepRes:
         sum += item.getInt()
       return %sum
     ,
-    post = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async.} =
+    post = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async, closure, gcsafe.} =
       return "done"
   )
   
@@ -37,13 +37,13 @@ proc runBenchmarks() {.async.} =
   
   # Benchmark 3: BatchNode
   let batchNode = newBatchNode(
-    prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async.} =
+    prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       var items = newJArray()
       for i in 0..<10:
         items.add(%i)
       return items
     ,
-    execItem = proc(ctx: PfContext, params: JsonNode, item: JsonNode): Future[JsonNode] {.async.} =
+    execItem = proc(ctx: PfContext, params: JsonNode, item: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       return %(item.getInt() * 2)
   )
   
@@ -51,13 +51,13 @@ proc runBenchmarks() {.async.} =
   
   # Benchmark 4: ParallelBatchNode (unlimited concurrency)
   let parallelBatchUnlimited = newParallelBatchNode(
-    prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async.} =
+    prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       var items = newJArray()
       for i in 0..<10:
         items.add(%i)
       return items
     ,
-    execItem = proc(ctx: PfContext, params: JsonNode, item: JsonNode): Future[JsonNode] {.async.} =
+    execItem = proc(ctx: PfContext, params: JsonNode, item: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       await sleepAsync(1)  # Simulate work
       return %(item.getInt() * 2)
     ,
@@ -68,13 +68,13 @@ proc runBenchmarks() {.async.} =
   
   # Benchmark 5: ParallelBatchNode (limited concurrency = 3)
   let parallelBatchLimited = newParallelBatchNode(
-    prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async.} =
+    prep = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       var items = newJArray()
       for i in 0..<10:
         items.add(%i)
       return items
     ,
-    execItem = proc(ctx: PfContext, params: JsonNode, item: JsonNode): Future[JsonNode] {.async.} =
+    execItem = proc(ctx: PfContext, params: JsonNode, item: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       await sleepAsync(1)  # Simulate work
       return %(item.getInt() * 2)
     ,
@@ -85,15 +85,15 @@ proc runBenchmarks() {.async.} =
   
   # Benchmark 6: Flow execution
   let node1 = newNode(
-    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       return %10
   )
   let node2 = newNode(
-    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       return %20
   )
   let node3 = newNode(
-    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+    exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       return %30
   )
   
@@ -102,15 +102,15 @@ proc runBenchmarks() {.async.} =
   
   # Benchmark 7: ConditionalNode
   let conditionalNode = newConditionalNode(
-    condition = proc(ctx: PfContext, params: JsonNode): Future[bool] {.async.} =
+    condition = proc(ctx: PfContext, params: JsonNode): Future[bool] {.async, closure, gcsafe.} =
       return true
     ,
     trueNode = newNode(
-      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
         return %"true_branch"
     ),
     falseNode = newNode(
-      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
         return %"false_branch"
     )
   )
@@ -119,11 +119,11 @@ proc runBenchmarks() {.async.} =
   
   # Benchmark 8: LoopNode
   let loopNode = newLoopNode(
-    items = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async.} =
+    items = proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
       return %*[1, 2, 3, 4, 5]
     ,
     body = newNode(
-      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
         let item = ctx["__loop_item__"].getInt()
         ctx["__loop_result__"] = %(item * 2)
         return %(item * 2)

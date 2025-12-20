@@ -40,12 +40,28 @@ task test_old, "Run old test suite":
   exec "nim c -r tests/test_llm_live.nim"
 
 task docs, "Generate documentation":
-  exec "nim doc --project --index:on --git.url:https://github.com/yourusername/PocketFlow-Nim --git.commit:main --outdir:docs src/pocketflow.nim"
+  mkDir("docs")
+  exec "nim doc --outdir:docs src/pocketflow.nim"
+  exec "nim doc --outdir:docs src/pocketflow/context.nim"
+  exec "nim doc --outdir:docs src/pocketflow/node.nim"
+  exec "nim doc --outdir:docs src/pocketflow/flow.nim"
+  exec "nim doc --outdir:docs src/pocketflow/llm.nim"
+  exec "nim doc --outdir:docs src/pocketflow/errors.nim"
+  exec "nim doc --outdir:docs src/pocketflow/cache.nim"
+  exec "nim doc --outdir:docs src/pocketflow/tokens.nim"
+  exec "nim doc --outdir:docs src/pocketflow/observability.nim"
+  exec "nim doc --outdir:docs src/pocketflow/rag.nim"
+  exec "nim doc --outdir:docs src/pocketflow/advanced_nodes.nim"
+  exec "nim doc --outdir:docs src/pocketflow/persistence.nim"
+  exec "nim doc --outdir:docs src/pocketflow/benchmark.nim"
+  echo "Documentation generated in docs/"
 
 task examples, "Build all examples":
   exec "nim c examples/simple_chat.nim"
   exec "nim c examples/rag_example.nim"
   exec "nim c examples/advanced_flow.nim"
+  exec "nim c examples/multi_provider.nim"
+  exec "nim c examples/benchmarks.nim"
 
 task clean, "Clean build artifacts":
   exec "rm -rf nimcache/"

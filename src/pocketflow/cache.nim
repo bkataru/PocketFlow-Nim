@@ -3,14 +3,14 @@
 ## Provides in-memory and persistent caching for LLM responses,
 ## embeddings, and other expensive operations.
 
-import json, tables, times, hashes, md5, strutils
+import json, tables, times, hashes, strutils
 
 type
   CacheEntry* = object
     value*: JsonNode
     timestamp*: Time
     ttlSeconds*: int
-  
+
   Cache* = ref object
     store*: TableRef[string, CacheEntry]
     maxSize*: int
@@ -18,7 +18,7 @@ type
 
 proc newCache*(maxSize: int = 10000, defaultTtl: int = 3600): Cache =
   ## Creates a new cache instance
-  ## 
+  ##
   ## Args:
   ##   maxSize: Maximum number of entries (default 10000)
   ##   defaultTtl: Default time-to-live in seconds (default 1 hour)
@@ -30,34 +30,35 @@ proc newCache*(maxSize: int = 10000, defaultTtl: int = 3600): Cache =
 
 proc computeKey*(parts: varargs[string]): string =
   ## Computes a cache key from multiple parts
-  ## Uses MD5 hash for consistent key generation
-  result = getMD5(parts.join(":"))
+  ## Uses hash for consistent key generation
+  let combined = parts.join(":")
+  result = $hash(combined)
 
 proc get*(cache: Cache, key: string): JsonNode =
   ## Gets a value from the cache
-  ## 
+  ##
   ## Returns:
   ##   The cached value, or JNull if not found or expired
   if not cache.store.hasKey(key):
     return newJNull()
-  
+
   let entry = cache.store[key]
   let age = getTime() - entry.timestamp
-  
+
   if age.inSeconds > entry.ttlSeconds:
     cache.store.del(key)
     return newJNull()
-  
+
   return entry.value
 
 proc set*(cache: Cache, key: string, value: JsonNode, ttl: int = -1) =
   ## Sets a value in the cache
-  ## 
+  ##
   ## Args:
   ##   key: The cache key
   ##   value: The value to cache
   ##   ttl: Time-to-live in seconds (-1 uses default)
-  
+
   # Evict oldest if at capacity
   if cache.store.len >= cache.maxSize and not cache.store.hasKey(key):
     var oldestKey = ""
@@ -68,7 +69,7 @@ proc set*(cache: Cache, key: string, value: JsonNode, ttl: int = -1) =
         oldestKey = k
     if oldestKey != "":
       cache.store.del(oldestKey)
-  
+
   let actualTtl = if ttl < 0: cache.defaultTtl else: ttl
   cache.store[key] = CacheEntry(
     value: value,
@@ -91,18 +92,18 @@ proc size*(cache: Cache): int =
 
 proc evictExpired*(cache: Cache): int =
   ## Removes all expired entries
-  ## 
+  ##
   ## Returns:
   ##   Number of entries removed
   result = 0
   var toDelete: seq[string] = @[]
   let now = getTime()
-  
+
   for key, entry in cache.store:
     let age = now - entry.timestamp
     if age.inSeconds > entry.ttlSeconds:
       toDelete.add(key)
-  
+
   for key in toDelete:
     cache.store.del(key)
     result += 1
