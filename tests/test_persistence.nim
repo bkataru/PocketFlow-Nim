@@ -1,152 +1,149 @@
 import unittest
 import json
 import os
-import ../src/pocketflow/[context, persistence]
+import times
+import ../src/pocketflow/persistence
+import ../src/pocketflow/context
 
 suite "Persistence Tests":
   setup:
-    # Clean up any test files before each test
-    if fileExists("test_state.json"):
-      removeFile("test_state.json")
-  
+    # Clean up any existing test state files
+    let testDir = ".pocketflow_test_state"
+    if dirExists(testDir):
+      removeDir(testDir)
+
   teardown:
-    # Clean up test files after each test
-    if fileExists("test_state.json"):
-      removeFile("test_state.json")
-  
-  test "Save context to file":
+    # Clean up after tests
+    let testDir = ".pocketflow_test_state"
+    if dirExists(testDir):
+      removeDir(testDir)
+
+  test "Create state store":
+    let store = newStateStore(".pocketflow_test_state")
+    check store != nil
+    check dirExists(".pocketflow_test_state")
+
+  test "Capture state from context":
     let ctx = newPfContext()
-    ctx["name"] = %"Alice"
-    ctx["age"] = %30
-    ctx["active"] = %true
-    
-    saveState(ctx, "test_state.json")
-    check fileExists("test_state.json")
-  
-  test "Load context from file":
+    ctx["key1"] = %"value1"
+    ctx["key2"] = %42
+    ctx["nested"] = %*{"a": 1, "b": 2}
+
+    let state = captureState(ctx, "test_flow_1")
+    check state.flowId == "test_flow_1"
+    check state.contextData["key1"].getStr() == "value1"
+    check state.contextData["key2"].getInt() == 42
+    check state.contextData["nested"]["a"].getInt() == 1
+
+  test "Save and load state":
+    let store = newStateStore(".pocketflow_test_state")
+
+    # Create context with data
     let ctx = newPfContext()
-    ctx["name"] = %"Bob"
-    ctx["score"] = %100
-    
-    saveState(ctx, "test_state.json")
-    
-    let loaded = loadState("test_state.json")
-    check loaded["name"].getStr() == "Bob"
-    check loaded["score"].getInt() == 100
-  
-  test "Save and load complex nested data":
+    ctx["message"] = %"Hello"
+    ctx["count"] = %100
+
+    # Capture and save state
+    let state = captureState(ctx, "persistence_test")
+    saveState(store, state)
+
+    # Load state back
+    let loadedState = loadState(store, "persistence_test")
+    check loadedState.flowId == "persistence_test"
+    check loadedState.contextData["message"].getStr() == "Hello"
+    check loadedState.contextData["count"].getInt() == 100
+
+  test "Restore context from state":
+    let store = newStateStore(".pocketflow_test_state")
+
+    # Create and save original context
+    let originalCtx = newPfContext()
+    originalCtx["restored_key"] = %"restored_value"
+    originalCtx["restored_num"] = %999
+
+    let state = captureState(originalCtx, "restore_test")
+    saveState(store, state)
+
+    # Load state and restore to new context
+    let loadedState = loadState(store, "restore_test")
+    let newCtx = newPfContext()
+    restoreContext(newCtx, loadedState)
+
+    check newCtx["restored_key"].getStr() == "restored_value"
+    check newCtx["restored_num"].getInt() == 999
+
+  test "Delete state":
+    let store = newStateStore(".pocketflow_test_state")
+
+    # Create and save state
     let ctx = newPfContext()
-    ctx["user"] = %*{
-      "name": "Charlie",
-      "age": 25,
-      "tags": ["developer", "tester"],
-      "metadata": {
-        "created": "2024-01-01",
-        "active": true
-      }
-    }
-    
-    saveState(ctx, "test_state.json")
-    let loaded = loadState("test_state.json")
-    
-    check loaded["user"]["name"].getStr() == "Charlie"
-    check loaded["user"]["age"].getInt() == 25
-    check loaded["user"]["tags"].len == 2
-    check loaded["user"]["metadata"]["active"].getBool() == true
-  
-  test "Load non-existent file raises error":
-    var errorCaught = false
+    ctx["temp"] = %"temporary"
+    let state = captureState(ctx, "delete_test")
+    saveState(store, state)
+
+    # Verify it exists
+    let loaded = loadState(store, "delete_test")
+    check loaded.flowId == "delete_test"
+
+    # Delete it
+    deleteState(store, "delete_test")
+
+    # Verify it's gone (should raise exception or return empty)
     try:
-      discard loadState("non_existent.json")
-    except PersistenceError:
-      errorCaught = true
-    
-    check errorCaught
-  
-  test "Save overwrites existing file":
+      discard loadState(store, "delete_test")
+      check false  # Should not reach here
+    except:
+      check true  # Expected exception
+
+  test "List states":
+    let store = newStateStore(".pocketflow_test_state")
+
+    # Create multiple states
+    for i in 1..3:
+      let ctx = newPfContext()
+      ctx["index"] = %i
+      let state = captureState(ctx, "list_test_" & $i)
+      saveState(store, state)
+
+    let states = listStates(store)
+    check states.len == 3
+
+  test "State with metadata":
+    let ctx = newPfContext()
+    ctx["data"] = %"test"
+
+    let metadata = %*{"version": "1.0", "author": "test"}
+    let state = captureState(ctx, "metadata_test", metadata)
+
+    check state.metadata["version"].getStr() == "1.0"
+    check state.metadata["author"].getStr() == "test"
+
+  test "State timestamp is recorded":
+    let ctx = newPfContext()
+    ctx["timestamp_test"] = %true
+
+    let beforeCapture = getTime()
+    let state = captureState(ctx, "timestamp_flow")
+    let afterCapture = getTime()
+
+    check state.timestamp >= beforeCapture
+    check state.timestamp <= afterCapture
+
+  test "Multiple saves overwrite previous state":
+    let store = newStateStore(".pocketflow_test_state")
+
+    # Save first version
     let ctx1 = newPfContext()
-    ctx1["version"] = %1
-    saveState(ctx1, "test_state.json")
-    
+    ctx1["version"] = %"v1"
+    let state1 = captureState(ctx1, "overwrite_test")
+    saveState(store, state1)
+
+    # Save second version with same flowId
     let ctx2 = newPfContext()
-    ctx2["version"] = %2
-    saveState(ctx2, "test_state.json")
-    
-    let loaded = loadState("test_state.json")
-    check loaded["version"].getInt() == 2
-  
-  test "Save empty context":
-    let ctx = newPfContext()
-    saveState(ctx, "test_state.json")
-    
-    let loaded = loadState("test_state.json")
-    check loaded.len == 0
-  
-  test "Save and load array data":
-    let ctx = newPfContext()
-    ctx["numbers"] = %[1, 2, 3, 4, 5]
-    ctx["strings"] = %["a", "b", "c"]
-    
-    saveState(ctx, "test_state.json")
-    let loaded = loadState("test_state.json")
-    
-    check loaded["numbers"].len == 5
-    check loaded["numbers"][0].getInt() == 1
-    check loaded["strings"].len == 3
-    check loaded["strings"][0].getStr() == "a"
-  
-  test "Checkpoint and restore":
-    let ctx = newPfContext()
-    ctx["step"] = %1
-    
-    let checkpoint = checkpoint(ctx)
-    
-    ctx["step"] = %2
-    ctx["modified"] = %true
-    
-    restore(ctx, checkpoint)
-    
-    check ctx["step"].getInt() == 1
-    check not ctx.hasKey("modified")
-  
-  test "Multiple checkpoints":
-    let ctx = newPfContext()
-    ctx["value"] = %10
-    
-    let cp1 = checkpoint(ctx)
-    ctx["value"] = %20
-    
-    let cp2 = checkpoint(ctx)
-    ctx["value"] = %30
-    
-    restore(ctx, cp2)
-    check ctx["value"].getInt() == 20
-    
-    restore(ctx, cp1)
-    check ctx["value"].getInt() == 10
-  
-  test "Save with special characters in values":
-    let ctx = newPfContext()
-    ctx["text"] = %"Hello \"World\" with 'quotes' and\nnewlines"
-    ctx["path"] = %"C:\\Users\\Test"
-    
-    saveState(ctx, "test_state.json")
-    let loaded = loadState("test_state.json")
-    
-    check loaded["text"].getStr() == "Hello \"World\" with 'quotes' and\nnewlines"
-    check loaded["path"].getStr() == "C:\\Users\\Test"
-  
-  test "Checkpoint preserves original context":
-    let ctx = newPfContext()
-    ctx["data"] = %"original"
-    
-    let cp = checkpoint(ctx)
-    ctx["data"] = %"modified"
-    
-    # Original checkpoint should still have "original"
-    let restored = newPfContext()
-    for key, val in cp.pairs():
-      restored[key] = val
-    
-    check restored["data"].getStr() == "original"
-    check ctx["data"].getStr() == "modified"
+    ctx2["version"] = %"v2"
+    let state2 = captureState(ctx2, "overwrite_test")
+    saveState(store, state2)
+
+    # Load should return v2
+    let loaded = loadState(store, "overwrite_test")
+    check loaded.contextData["version"].getStr() == "v2"

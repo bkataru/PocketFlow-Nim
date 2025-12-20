@@ -2,171 +2,122 @@ import unittest
 import asyncdispatch
 import json
 import os
-import ../src/pocketflow/[context, llm, cache, tokens]
-
-# Note: These tests require API keys to be set in environment variables
-# For CI/CD, mock implementations should be used
+import ../src/pocketflow/llm
+import ../src/pocketflow/cache
+import ../src/pocketflow/tokens
 
 suite "LLM Tests":
-  test "Create LLM client":
-    if getEnv("OPENAI_API_KEY") != "":
-      let client = newLLMClient("openai", apiKey = getEnv("OPENAI_API_KEY"))
-      check client != nil
-  
-  test "Chat completion structure":
-    # Test with mock/offline mode
-    let client = newLLMClient("openai", apiKey = "test_key")
+  test "Create LLM client with default OpenAI":
+    let client = newLlmClient()
     check client != nil
-    check client.provider == "openai"
-  
-  test "Different providers can be created":
-    let openai = newLLMClient("openai", apiKey = "test")
-    let anthropic = newLLMClient("anthropic", apiKey = "test")
-    let google = newLLMClient("google", apiKey = "test")
-    let ollama = newLLMClient("ollama")
-    
-    check openai.provider == "openai"
-    check anthropic.provider == "anthropic"
-    check google.provider == "google"
-    check ollama.provider == "ollama"
-  
-  test "Cache configuration":
-    let client = newLLMClient("openai", apiKey = "test", enableCache = true)
-    check client.cache != nil
-  
-  test "Token tracking is initialized":
-    let client = newLLMClient("openai", apiKey = "test")
-    check client.inputTokens >= 0
-    check client.outputTokens >= 0
-  
-  test "Get token usage":
-    let client = newLLMClient("openai", apiKey = "test")
-    let usage = client.getTokenUsage()
-    check usage["input_tokens"].getInt() >= 0
-    check usage["output_tokens"].getInt() >= 0
-  
-  test "Calculate cost":
-    let client = newLLMClient("openai", apiKey = "test", model = "gpt-3.5-turbo")
-    client.inputTokens = 1000
-    client.outputTokens = 500
-    let cost = client.getCost()
-    check cost >= 0.0
-  
-  test "Reset token counts":
-    let client = newLLMClient("openai", apiKey = "test")
-    client.inputTokens = 1000
-    client.outputTokens = 500
-    client.resetTokens()
-    check client.inputTokens == 0
-    check client.outputTokens == 0
-  
-  test "Streaming mode configuration":
-    let client = newLLMClient("openai", apiKey = "test", stream = true)
-    check client.stream == true
-  
-  test "Model parameter is set":
-    let client = newLLMClient("openai", apiKey = "test", model = "gpt-4")
-    check client.model == "gpt-4"
-  
-  test "Temperature parameter is set":
-    let client = newLLMClient("openai", apiKey = "test", temperature = 0.7)
-    check client.temperature == 0.7
-  
-  test "Max tokens parameter is set":
-    let client = newLLMClient("openai", apiKey = "test", maxTokens = 2000)
-    check client.maxTokens == 2000
-  
-  test "Multiple clients can coexist":
-    let client1 = newLLMClient("openai", apiKey = "test1", model = "gpt-3.5-turbo")
-    let client2 = newLLMClient("anthropic", apiKey = "test2", model = "claude-3-opus-20240229")
-    
-    check client1.provider != client2.provider
-    check client1.model != client2.model
-  
-  test "Client supports system prompts":
-    let client = newLLMClient("openai", apiKey = "test")
-    check client.systemPrompt == ""
-    
-    client.systemPrompt = "You are a helpful assistant"
-    check client.systemPrompt == "You are a helpful assistant"
+    check client.provider == OpenAI
 
-# Integration test with actual API (skipped in CI unless API key is present)
-suite "LLM Integration Tests (requires API key)":
-  test "OpenAI chat completion":
-    let apiKey = getEnv("OPENAI_API_KEY")
-    if apiKey == "":
-      skip()
-    else:
-      let client = newLLMClient("openai", apiKey = apiKey, model = "gpt-3.5-turbo")
-      let response = waitFor client.chat("Say 'Hello, World!' and nothing else")
-      
-      check response != ""
-      check response.contains("Hello")
-      check client.inputTokens > 0
-      check client.outputTokens > 0
-  
-  test "Anthropic chat completion":
-    let apiKey = getEnv("ANTHROPIC_API_KEY")
-    if apiKey == "":
-      skip()
-    else:
-      let client = newLLMClient("anthropic", apiKey = apiKey, model = "claude-3-opus-20240229")
-      let response = waitFor client.chat("Say 'Hello' and nothing else")
-      
-      check response != ""
-      check client.inputTokens > 0
-  
-  test "Google chat completion":
-    let apiKey = getEnv("GOOGLE_API_KEY")
-    if apiKey == "":
-      skip()
-    else:
-      let client = newLLMClient("google", apiKey = apiKey, model = "gemini-pro")
-      let response = waitFor client.chat("Say 'Hello' and nothing else")
-      
-      check response != ""
-  
-  test "Ollama chat completion":
-    # Ollama requires local server running
-    if not fileExists("/usr/local/bin/ollama") and not fileExists("C:\\Program Files\\Ollama\\ollama.exe"):
-      skip()
-    else:
-      let client = newLLMClient("ollama", model = "llama2")
-      try:
-        let response = waitFor client.chat("Say 'Hello' and nothing else")
-        check response != ""
-      except LLMError:
-        skip()  # Ollama server not running
-  
-  test "Chat with caching":
-    let apiKey = getEnv("OPENAI_API_KEY")
-    if apiKey == "":
-      skip()
-    else:
-      let client = newLLMClient("openai", apiKey = apiKey, enableCache = true)
-      
-      let response1 = waitFor client.chat("What is 2+2?")
-      let tokens1 = client.inputTokens + client.outputTokens
-      
-      client.resetTokens()
-      let response2 = waitFor client.chat("What is 2+2?")
-      let tokens2 = client.inputTokens + client.outputTokens
-      
-      check response1 == response2  # Cached response should be identical
-      check tokens2 == 0  # Should use cache, no API call
-  
-  test "Streaming response":
-    let apiKey = getEnv("OPENAI_API_KEY")
-    if apiKey == "":
-      skip()
-    else:
-      let client = newLLMClient("openai", apiKey = apiKey, stream = true)
-      var chunks: seq[string] = @[]
-      
-      proc handleChunk(chunk: string) =
-        chunks.add(chunk)
-      
-      waitFor client.chatStream("Count from 1 to 5", handleChunk)
-      
-      check chunks.len > 0
-      check chunks.join("").len > 0
+  test "Create LLM client with explicit provider":
+    let client = newLlmClient(provider = Ollama)
+    check client != nil
+    check client.provider == Ollama
+
+  test "Create LLM client with Anthropic":
+    let client = newLlmClient(provider = Anthropic)
+    check client != nil
+    check client.provider == Anthropic
+
+  test "Create LLM client with Google":
+    let client = newLlmClient(provider = Google)
+    check client != nil
+    check client.provider == Google
+
+  test "Create LLM client with custom base URL":
+    let client = newLlmClient(
+      provider = Custom,
+      baseUrl = "http://localhost:8080/v1"
+    )
+    check client != nil
+    check client.baseUrl == "http://localhost:8080/v1"
+
+  test "Create LLM client with API key":
+    let client = newLlmClient(
+      provider = OpenAI,
+      apiKey = "test-api-key-12345"
+    )
+    check client != nil
+    check client.apiKey == "test-api-key-12345"
+
+  test "Create LLM client with model":
+    let client = newLlmClient(
+      provider = OpenAI,
+      model = "gpt-4"
+    )
+    check client != nil
+    check client.model == "gpt-4"
+
+  test "Create LLM client with cost tracker":
+    let tracker = newCostTracker()
+    let client = newLlmClient(
+      provider = OpenAI,
+      costTracker = tracker
+    )
+    check client != nil
+    check client.costTracker != nil
+
+  test "Create LLM client with cache":
+    let responseCache = newCache()
+    let client = newLlmClient(
+      provider = OpenAI,
+      cache = responseCache
+    )
+    check client != nil
+    check client.cache != nil
+
+  test "LlmOptions default values":
+    var opts: LlmOptions
+    check opts.temperature == 0.0
+    check opts.maxTokens == 0
+    check opts.topP == 0.0
+    check opts.stream == false
+    check opts.useCache == false
+    check opts.timeout == 0
+
+  test "LlmOptions with custom values":
+    let opts = LlmOptions(
+      temperature: 0.7,
+      maxTokens: 1000,
+      topP: 0.95,
+      stream: false,
+      useCache: true,
+      timeout: 30000
+    )
+    check opts.temperature == 0.7
+    check opts.maxTokens == 1000
+    check opts.topP == 0.95
+    check opts.useCache == true
+    check opts.timeout == 30000
+
+  test "All providers are supported":
+    # Test that all provider enum values can be used
+    check $OpenAI == "OpenAI"
+    check $Ollama == "Ollama"
+    check $Anthropic == "Anthropic"
+    check $Google == "Google"
+    check $Custom == "Custom"
+
+  test "Full client configuration":
+    let tracker = newCostTracker()
+    let responseCache = newCache()
+
+    let client = newLlmClient(
+      provider = OpenAI,
+      baseUrl = "https://api.openai.com/v1",
+      apiKey = "sk-test-key",
+      model = "gpt-4-turbo",
+      costTracker = tracker,
+      cache = responseCache
+    )
+
+    check client != nil
+    check client.provider == OpenAI
+    check client.baseUrl == "https://api.openai.com/v1"
+    check client.apiKey == "sk-test-key"
+    check client.model == "gpt-4-turbo"
+    check client.costTracker == tracker
+    check client.cache == responseCache

@@ -1,89 +1,90 @@
 import unittest
-import asyncdispatch
 import json
-import os
-import ../src/pocketflow/[context, observability]
+import times
+import ../src/pocketflow/observability
 
 suite "Observability Tests":
-  test "Create observer":
-    let obs = newObserver()
-    check obs != nil
-  
-  test "Start and finish span":
-    let obs = newObserver()
-    obs.startSpan("test_span")
-    sleep(100)  # Simulate work
-    obs.finishSpan("test_span")
-    # Should complete without error
-    check true
-  
+  test "Create span":
+    let span = newSpan("test_operation")
+    check span.name == "test_operation"
+    # startTime should be set (non-zero)
+    check span.startTime != Time()
+
+  test "Finish span sets end time":
+    let span = newSpan("test_span")
+    # Do some work
+    var sum = 0
+    for i in 0..1000:
+      sum += i
+    finish(span)
+    # endTime should be >= startTime
+    check span.endTime >= span.startTime
+
+  test "Get span duration":
+    let span = newSpan("duration_test")
+    # Small delay
+    for i in 0..100000:
+      discard i * 2
+    finish(span)
+    let duration = getDurationMs(span)
+    check duration >= 0.0
+
   test "Record metric":
-    let obs = newObserver()
-    obs.recordMetric("test_metric", 42.0)
-    obs.recordMetric("test_metric", 84.0)
-    # Should complete without error
+    # Record some metrics
+    recordMetric("request_count", 1.0)
+    recordMetric("request_count", 1.0)
+    recordMetric("response_time_ms", 150.5)
+    recordMetric("response_time_ms", 200.0)
+    recordMetric("error_count", 0.0, [("service", "api")])
+
+    # No exception means success
     check true
-  
-  test "Log message":
-    let obs = newObserver()
-    obs.log("info", "Test message")
-    obs.log("warn", "Warning message")
-    obs.log("error", "Error message")
-    # Should complete without error
+
+  test "Get metrics summary":
+    # Record some metrics first
+    recordMetric("test_metric", 10.0)
+    recordMetric("test_metric", 20.0)
+    recordMetric("test_metric", 30.0)
+
+    let summary = getMetricsSummary()
+    check summary.kind == JObject
+
+  test "Log structured message":
+    logStructured(Info, "Test message", [("key", "value")])
+    logStructured(Debug, "Debug message")
+    logStructured(Error, "Error occurred", [("error_code", "500")])
+
+    # No exception means success
     check true
-  
-  test "Nested spans":
-    let obs = newObserver()
-    obs.startSpan("outer_span")
-    obs.startSpan("inner_span")
-    obs.finishSpan("inner_span")
-    obs.finishSpan("outer_span")
+
+  test "Log levels":
+    logStructured(Debug, "Debug level message")
+    logStructured(Info, "Info level message")
+    logStructured(Warn, "Warning level message")
+    logStructured(Error, "Error level message")
+
     check true
-  
-  test "Multiple metrics with same name":
-    let obs = newObserver()
-    for i in 0..<10:
-      obs.recordMetric("counter", float(i))
-    check true
-  
-  test "Different log levels":
-    let obs = newObserver()
-    obs.log("debug", "Debug message")
-    obs.log("info", "Info message")
-    obs.log("warn", "Warning")
-    obs.log("error", "Error")
-    check true
-  
-  test "Span timing is recorded":
-    let obs = newObserver()
-    obs.startSpan("timed_span")
-    sleep(100)
-    obs.finishSpan("timed_span")
-    # Duration should be recorded internally
-    check true
-  
-  test "Observer handles concurrent operations":
-    let obs = newObserver()
-    
-    proc worker(id: int) {.async.} =
-      obs.startSpan("worker_" & $id)
-      await sleepAsync(50)
-      obs.recordMetric("work_done", float(id))
-      obs.finishSpan("worker_" & $id)
-    
-    var futures: seq[Future[void]] = @[]
-    for i in 0..<5:
-      futures.add(worker(i))
-    
-    waitFor all(futures)
-    check true
-  
-  test "Log with structured data":
-    let obs = newObserver()
-    obs.log("info", "User action", %*{"user_id": 123, "action": "login"})
-    check true
-  
+
+  test "Span name is preserved":
+    let span = newSpan("custom_operation_name")
+    check span.name == "custom_operation_name"
+    finish(span)
+
+  test "Multiple spans can be created":
+    let span1 = newSpan("operation_1")
+    let span2 = newSpan("operation_2")
+    let span3 = newSpan("operation_3")
+
+    check span1.name == "operation_1"
+    check span2.name == "operation_2"
+    check span3.name == "operation_3"
+
+    finish(span1)
+    finish(span2)
+    finish(span3)
+
   test "Metric with tags":
-    let obs = newObserver()
-    obs.recordMetric("request_duration", 0.5, %*{"endpoint": "/api/users", "method": "GET"})
+    recordMetric("http_requests", 100.0, [("method", "GET"), ("path", "/api")])
+    recordMetric("http_requests", 50.0, [("method", "POST"), ("path", "/api")])
+
     check true

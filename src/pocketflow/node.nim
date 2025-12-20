@@ -1,5 +1,5 @@
 ## Node module for PocketFlow
-## 
+##
 ## Provides the core node types for building execution graphs.
 ## Nodes can be chained together to create complex workflows with
 ## retry logic, fallback handling, and parallel execution.
@@ -71,7 +71,8 @@ proc next*(node: BaseNode, action: string, nextNode: BaseNode): BaseNode {.disca
 
 # `>>` operator: nodeA >> nodeB  is equivalent to nodeA.next(nodeB)
 proc `>>`*(node: BaseNode, nextNode: BaseNode): BaseNode {.discardable.} =
-  return node.next(nextNode)
+  discard node.next(nextNode)
+  return nextNode  # Return nextNode to allow proper chaining: a >> b >> c
 
 # `-` operator: node - "action"  creates an ActionLink for chaining
 type ActionLink* = object
@@ -154,10 +155,10 @@ method internalRun*(node: Node, ctx: PfContext): Future[string] {.async, gcsafe.
   var action = DefaultAction
   if node.postFunc != nil:
     action = await node.postFunc(ctx, node.params, prepRes, execRes)
-  
+
   if action == "":
     action = DefaultAction
-    
+
   return action
 
 # --- BatchNode Implementation ---
@@ -184,13 +185,13 @@ method internalRun*(node: BatchNode, ctx: PfContext): Future[string] {.async, gc
   var prepRes: JsonNode = newJArray()
   if node.prepFunc != nil:
     prepRes = await node.prepFunc(ctx, node.params)
-  
+
   if prepRes.kind != JArray:
     raise newException(Exception, "BatchNode Prep must return a JArray")
 
   # Exec Items
   var execResults = newJArray()
-  
+
   for item in prepRes.items:
     var itemRes: JsonNode = newJNull()
     var lastErr: ref Exception = nil
@@ -211,7 +212,7 @@ method internalRun*(node: BatchNode, ctx: PfContext): Future[string] {.async, gc
           warn(fmt"BatchNode item exec failed (attempt {i + 1}/{node.maxRetries}): {e.msg}. Retrying...")
           if node.waitMs > 0:
             await sleepAsync(node.waitMs)
-    
+
     if not success:
       if node.itemFallbackFunc != nil:
         try:
@@ -220,7 +221,7 @@ method internalRun*(node: BatchNode, ctx: PfContext): Future[string] {.async, gc
            raise newException(Exception, fmt"Batch item fallback failed: {e.msg}", e)
       else:
          raise newException(Exception, fmt"Batch item exec failed after {node.maxRetries} retries: {lastErr.msg}", lastErr)
-    
+
     execResults.add(itemRes)
 
   # Post
@@ -262,7 +263,7 @@ method internalRun*(node: ParallelBatchNode, ctx: PfContext): Future[string] {.a
   var prepRes: JsonNode = newJArray()
   if node.prepFunc != nil:
     prepRes = await node.prepFunc(ctx, node.params)
-  
+
   if prepRes.kind != JArray:
     raise newException(Exception, "ParallelBatchNode Prep must return a JArray")
 
@@ -286,7 +287,7 @@ method internalRun*(node: ParallelBatchNode, ctx: PfContext): Future[string] {.a
           warn(fmt"ParallelBatchNode item exec failed (attempt {i + 1}/{node.maxRetries}): {e.msg}. Retrying...")
           if node.waitMs > 0:
             await sleepAsync(node.waitMs)
-    
+
     if not success:
       if node.itemFallbackFunc != nil:
         try:
@@ -308,7 +309,7 @@ method internalRun*(node: ParallelBatchNode, ctx: PfContext): Future[string] {.a
         let chunkResults = await all(currentFutures)
         for r in chunkResults: execResults.add(r)
         currentFutures = @[]
-    
+
     if currentFutures.len > 0:
       let chunkResults = await all(currentFutures)
       for r in chunkResults: execResults.add(r)
@@ -317,7 +318,7 @@ method internalRun*(node: ParallelBatchNode, ctx: PfContext): Future[string] {.a
     var futures: seq[Future[JsonNode]] = @[]
     for item in prepRes.items:
       futures.add(processItem(item))
-      
+
     let execResultsSeq = await all(futures)
     for r in execResultsSeq: execResults.add(r)
 
@@ -330,4 +331,3 @@ method internalRun*(node: ParallelBatchNode, ctx: PfContext): Future[string] {.a
     action = DefaultAction
 
   return action
-

@@ -1,303 +1,263 @@
 import unittest
 import asyncdispatch
 import json
-import os
-import ../src/pocketflow/[context, node, flow, llm, rag, advanced_nodes, persistence, observability]
+import strutils
+import ../src/pocketflow
 
-suite "Integration Tests - Complete Flows":
-  test "Simple chat flow":
-    proc preparePrompt(ctx: PfContext): Future[string] {.async.} =
-      let userInput = ctx["user_input"].getStr()
-      ctx["prompt"] = %("User says: " & userInput)
-      return "prepared"
-    
-    proc respond(ctx: PfContext): Future[string] {.async.} =
-      let prompt = ctx["prompt"].getStr()
-      ctx["response"] = %("Echo: " & prompt)
-      return "responded"
-    
-    let flow = newFlow("chat_flow")
-    flow.addNode(newNode("prepare", preparePrompt))
-    flow.addNode(newNode("respond", respond))
-    
+suite "Integration Tests":
+  test "Simple linear flow execution":
+    let step1 = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["step1_done"] = %true
+        return %"step1_complete"
+    )
+    let step2 = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["step2_done"] = %true
+        return %"step2_complete"
+    )
+    let step3 = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["step3_done"] = %true
+        return %"step3_complete"
+    )
+
+    discard step1 >> step2 >> step3
+    let flow = newFlow(step1)
+
     let ctx = newPfContext()
-    ctx["user_input"] = %"Hello!"
-    
-    discard waitFor flow.run(ctx)
-    
-    check ctx["response"].getStr().contains("Hello!")
-  
-  test "Multi-step data processing pipeline":
-    proc loadData(ctx: PfContext): Future[string] {.async.} =
-      ctx["data"] = %[1, 2, 3, 4, 5]
-      return "loaded"
-    
-    proc filterData(ctx: PfContext): Future[string] {.async.} =
-      var filtered = newJArray()
-      for item in ctx["data"]:
-        if item.getInt() > 2:
-          filtered.add(item)
-      ctx["filtered"] = filtered
-      return "filtered"
-    
-    proc aggregateData(ctx: PfContext): Future[string] {.async.} =
-      var sum = 0
-      for item in ctx["filtered"]:
-        sum += item.getInt()
-      ctx["sum"] = %sum
-      return "aggregated"
-    
-    let flow = newFlow("pipeline")
-    flow.addNode(newNode("load", loadData))
-    flow.addNode(newNode("filter", filterData))
-    flow.addNode(newNode("aggregate", aggregateData))
-    
+    discard waitFor flow.internalRun(ctx)
+
+    check ctx["step1_done"].getBool() == true
+    check ctx["step2_done"].getBool() == true
+    check ctx["step3_done"].getBool() == true
+
+  test "Flow with data transformation":
+    let producer = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["data"] = %*{"name": "test", "value": 100}
+        return %"produced"
+    )
+    let transformer = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        let data = ctx["data"]
+        let newValue = data["value"].getInt() * 2
+        ctx["transformed_value"] = %newValue
+        return %"transformed"
+    )
+    let consumer = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        let value = ctx["transformed_value"].getInt()
+        ctx["final_result"] = %(value + 50)
+        return %"consumed"
+    )
+
+    discard producer >> transformer >> consumer
+    let flow = newFlow(producer)
+
     let ctx = newPfContext()
-    discard waitFor flow.run(ctx)
-    
-    check ctx["sum"].getInt() == 12  # 3 + 4 + 5
-  
-  test "Conditional flow with branching":
-    proc checkValue(ctx: PfContext): Future[string] {.async.} =
-      ctx["value"] = %15
-      return "checked"
-    
-    proc condition(ctx: PfContext): bool =
-      return ctx["value"].getInt() > 10
-    
-    proc handleLarge(ctx: PfContext): Future[string] {.async.} =
-      ctx["category"] = %"large"
-      return "categorized"
-    
-    proc handleSmall(ctx: PfContext): Future[string] {.async.} =
-      ctx["category"] = %"small"
-      return "categorized"
-    
-    let flow = newFlow("conditional_flow")
-    flow.addNode(newNode("check", checkValue))
-    flow.addNode(newConditionalNode(
-      "categorize",
-      condition,
-      newNode("large", handleLarge),
-      newNode("small", handleSmall)
-    ))
-    
-    let ctx = newPfContext()
-    discard waitFor flow.run(ctx)
-    
-    check ctx["category"].getStr() == "large"
-  
-  test "Loop-based accumulator flow":
-    proc initLoop(ctx: PfContext): Future[string] {.async.} =
-      ctx["iterations"] = %5
-      ctx["sum"] = %0
-      return "initialized"
-    
-    proc getIterations(ctx: PfContext): int =
-      return ctx["iterations"].getInt()
-    
-    proc accumulate(ctx: PfContext): Future[string] {.async.} =
-      let current = ctx["sum"].getInt()
-      ctx["sum"] = %(current + 10)
-      return "accumulated"
-    
-    let flow = newFlow("accumulator_flow")
-    flow.addNode(newNode("init", initLoop))
-    flow.addNode(newLoopNode("loop", getIterations, newNode("add", accumulate)))
-    
-    let ctx = newPfContext()
-    discard waitFor flow.run(ctx)
-    
-    check ctx["sum"].getInt() == 50
-  
-  test "Parallel batch processing flow":
-    proc processItem(ctx: PfContext): Future[string] {.async.} =
-      let value = ctx["item"].getInt()
-      await sleepAsync(10)  # Simulate processing time
-      ctx["result"] = %(value * 2)
-      return "processed"
-    
-    let flow = newParallelBatchFlow("batch_flow", maxConcurrent = 3)
-    flow.addNode(newMapNode("process", "items", newNode("processor", processItem)))
-    
-    let ctx = newPfContext()
-    ctx["items"] = %[1, 2, 3, 4, 5]
-    
-    import times
-    let startTime = cpuTime()
-    discard waitFor flow.run(ctx)
-    let duration = cpuTime() - startTime
-    
-    check ctx.hasKey("results")
-    check ctx["results"].len == 5
-    # Parallel processing should be faster than sequential (5 * 10ms = 50ms)
-    check duration < 0.04  # Should complete in less than 40ms with parallelism
-  
-  test "Flow with persistence checkpointing":
-    proc step1(ctx: PfContext): Future[string] {.async.} =
-      ctx["step1_done"] = %true
-      return "step1"
-    
-    proc step2(ctx: PfContext): Future[string] {.async.} =
-      ctx["step2_done"] = %true
-      return "step2"
-    
-    let flow = newFlow("checkpoint_flow")
-    flow.addNode(newNode("step1", step1))
-    flow.addNode(newNode("step2", step2))
-    
-    let ctx = newPfContext()
-    discard waitFor flow.run(ctx)
-    
-    # Save checkpoint
-    saveState(ctx, "test_checkpoint.json")
-    
-    # Load and verify
-    let loaded = loadState("test_checkpoint.json")
-    check loaded["step1_done"].getBool() == true
-    check loaded["step2_done"].getBool() == true
-    
-    # Cleanup
-    if fileExists("test_checkpoint.json"):
-      removeFile("test_checkpoint.json")
-  
-  test "Flow with observability":
-    let observer = newObserver()
-    
-    proc trackedProcess(ctx: PfContext): Future[string] {.async.} =
-      observer.startSpan("processing")
-      await sleepAsync(10)
-      observer.recordMetric("items_processed", 1.0)
-      observer.finishSpan("processing")
-      ctx["processed"] = %true
-      return "done"
-    
-    let flow = newFlow("observed_flow")
-    flow.addNode(newNode("process", trackedProcess))
-    
-    let ctx = newPfContext()
-    observer.startSpan("flow_execution")
-    discard waitFor flow.run(ctx)
-    observer.finishSpan("flow_execution")
-    
-    check ctx["processed"].getBool() == true
-  
-  test "RAG-based flow":
-    proc loadDocuments(ctx: PfContext): Future[string] {.async.} =
-      ctx["documents"] = %[
-        "The sky is blue.",
-        "Grass is green.",
-        "The sun is bright.",
-        "Water is wet."
-      ]
-      return "loaded"
-    
-    proc createChunks(ctx: PfContext): Future[string] {.async.} =
-      var chunks = newJArray()
-      for doc in ctx["documents"]:
-        let chunk = %*{
-          "text": doc.getStr(),
-          "embedding": createEmbeddings(doc.getStr())
-        }
-        chunks.add(chunk)
-      ctx["chunks"] = chunks
-      return "chunked"
-    
-    proc query(ctx: PfContext): Future[string] {.async.} =
-      ctx["query"] = %"What color is the sky?"
-      return "queried"
-    
-    let flow = newFlow("rag_flow")
-    flow.addNode(newNode("load", loadDocuments))
-    flow.addNode(newNode("chunk", createChunks))
-    flow.addNode(newNode("query", query))
-    
-    let ctx = newPfContext()
-    discard waitFor flow.run(ctx)
-    
-    check ctx.hasKey("chunks")
-    check ctx["chunks"].len == 4
-  
-  test "Error recovery flow":
+    discard waitFor flow.internalRun(ctx)
+
+    check ctx["data"]["name"].getStr() == "test"
+    check ctx["transformed_value"].getInt() == 200
+    check ctx["final_result"].getInt() == 250
+
+  test "Flow with branching":
+    let router = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        return ctx["route"]
+      ,
+      post = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async, closure, gcsafe.} =
+        return execRes.getStr()
+    )
+    let handlerA = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["handled_by"] = %"A"
+        return %"done"
+    )
+    let handlerB = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["handled_by"] = %"B"
+        return %"done"
+    )
+
+    discard router - "route_a" >> handlerA
+    discard router - "route_b" >> handlerB
+    let flow = newFlow(router)
+
+    # Test route A
+    let ctxA = newPfContext()
+    ctxA["route"] = %"route_a"
+    discard waitFor flow.internalRun(ctxA)
+    check ctxA["handled_by"].getStr() == "A"
+
+    # Test route B
+    let ctxB = newPfContext()
+    ctxB["route"] = %"route_b"
+    discard waitFor flow.internalRun(ctxB)
+    check ctxB["handled_by"].getStr() == "B"
+
+  test "Flow with retry and recovery":
     var attemptCount = 0
-    
-    proc unreliableProcess(ctx: PfContext): Future[string] {.async.} =
-      attemptCount += 1
-      if attemptCount < 3:
-        raise newNodeExecutionError("unreliable", "Failed attempt " & $attemptCount)
-      ctx["success"] = %true
-      return "succeeded"
-    
-    proc retryLoop(ctx: PfContext): int =
-      return 3
-    
-    let flow = newFlow("retry_flow")
-    flow.addNode(newLoopNode("retry", retryLoop, newNode("process", unreliableProcess)))
-    
+    let unreliableNode = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        {.cast(gcsafe).}:
+          attemptCount += 1
+          if attemptCount < 3:
+            raise newException(Exception, "Temporary failure")
+        ctx["success"] = %true
+        return %"recovered"
+      ,
+      maxRetries = 5,
+      waitMs = 10
+    )
+
+    let flow = newFlow(unreliableNode)
     let ctx = newPfContext()
-    
-    # Should eventually succeed after retries
-    var succeeded = false
-    try:
-      discard waitFor flow.run(ctx)
-      succeeded = ctx.hasKey("success") and ctx["success"].getBool()
-    except NodeExecutionError:
-      discard
-    
-    check succeeded or attemptCount == 3
-  
-  test "Complex multi-stage flow with all features":
-    # Initialize
-    proc init(ctx: PfContext): Future[string] {.async.} =
-      ctx["data"] = %[10, 20, 30, 40, 50]
-      ctx["threshold"] = %25
-      return "initialized"
-    
-    # Filter based on condition
-    proc condition(ctx: PfContext): bool =
-      return ctx.hasKey("filtered")
-    
-    proc filterData(ctx: PfContext): Future[string] {.async.} =
-      let threshold = ctx["threshold"].getInt()
-      var filtered = newJArray()
-      for item in ctx["data"]:
-        if item.getInt() > threshold:
-          filtered.add(item)
-      ctx["filtered"] = filtered
-      return "filtered"
-    
-    proc skipFilter(ctx: PfContext): Future[string] {.async.} =
-      ctx["filtered"] = ctx["data"]
-      return "skipped"
-    
-    # Process each item
-    proc processItem(ctx: PfContext): Future[string] {.async.} =
-      let value = ctx["item"].getInt()
-      ctx["result"] = %(value * 2)
-      return "processed"
-    
-    # Aggregate
-    proc aggregate(ctx: PfContext): Future[string] {.async.} =
-      var sum = 0
-      if ctx.hasKey("results"):
-        for result in ctx["results"]:
-          sum += result["result"].getInt()
-      ctx["total"] = %sum
-      return "aggregated"
-    
-    let flow = newFlow("complex_flow")
-    flow.addNode(newNode("init", init))
-    flow.addNode(newConditionalNode(
-      "filter_check",
-      condition,
-      newNode("skip", skipFilter),
-      newNode("filter", filterData)
-    ))
-    flow.addNode(newMapNode("process", "filtered", newNode("processor", processItem)))
-    flow.addNode(newNode("aggregate", aggregate))
-    
+    discard waitFor flow.internalRun(ctx)
+
+    check attemptCount == 3
+    check ctx["success"].getBool() == true
+
+  test "Flow with fallback":
+    let alwaysFailNode = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        raise newException(Exception, "Always fails")
+      ,
+      fallback = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode, err: ref Exception): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["used_fallback"] = %true
+        ctx["error_message"] = %err.msg
+        return %"fallback_result"
+      ,
+      maxRetries = 1
+    )
+
+    let flow = newFlow(alwaysFailNode)
     let ctx = newPfContext()
-    discard waitFor flow.run(ctx)
-    
-    check ctx.hasKey("total")
-    check ctx["total"].getInt() > 0
+    discard waitFor flow.internalRun(ctx)
+
+    check ctx["used_fallback"].getBool() == true
+    check ctx["error_message"].getStr().contains("Always fails")
+
+  test "BatchFlow integration":
+    let processor = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        let id = params["id"].getInt()
+        let name = params["name"].getStr()
+        ctx["last_processed"] = %*{"id": id, "name": name}
+        return %("processed_" & name)
+    )
+
+    let batchFlow = newBatchFlow(processor)
+    discard batchFlow.setPrepBatch(
+      proc(ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        return %[
+          %*{"id": 1, "name": "Alice"},
+          %*{"id": 2, "name": "Bob"},
+          %*{"id": 3, "name": "Charlie"}
+        ]
+    )
+    discard batchFlow.setPostBatch(
+      proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async, closure, gcsafe.} =
+        ctx["batch_count"] = %execRes.len
+        return "batch_complete"
+    )
+
+    let ctx = newPfContext()
+    let action = waitFor batchFlow.internalRun(ctx)
+
+    check action == "batch_complete"
+    check ctx["batch_count"].getInt() == 3
+
+  test "Nested flows":
+    let innerStep = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        let depth = if ctx.hasKey("depth"): ctx["depth"].getInt() else: 0
+        ctx["depth"] = %(depth + 1)
+        ctx["inner_executed"] = %true
+        return %"inner_done"
+    )
+    let innerFlow = newFlow(innerStep)
+
+    let outerStart = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["outer_start"] = %true
+        return %"outer_started"
+    )
+    let outerEnd = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["outer_end"] = %true
+        return %"outer_ended"
+    )
+
+    discard outerStart >> innerFlow >> outerEnd
+    let outerFlow = newFlow(outerStart)
+
+    let ctx = newPfContext()
+    discard waitFor outerFlow.internalRun(ctx)
+
+    check ctx["outer_start"].getBool() == true
+    check ctx["inner_executed"].getBool() == true
+    check ctx["outer_end"].getBool() == true
+
+  test "Complex workflow with multiple branches":
+    let entryPoint = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["workflow_started"] = %true
+        return %"entry"
+      ,
+      post = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async, closure, gcsafe.} =
+        let taskType = ctx["task_type"].getStr()
+        return taskType
+    )
+
+    let processA = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["process"] = %"A"
+        return %"done"
+    )
+
+    let processB = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["process"] = %"B"
+        return %"done"
+    )
+
+    discard entryPoint - "type_a" >> processA
+    discard entryPoint - "type_b" >> processB
+
+    let flow = newFlow(entryPoint)
+
+    # Test type_a
+    let ctxA = newPfContext()
+    ctxA["task_type"] = %"type_a"
+    discard waitFor flow.internalRun(ctxA)
+    check ctxA["process"].getStr() == "A"
+
+    # Test type_b
+    let ctxB = newPfContext()
+    ctxB["task_type"] = %"type_b"
+    discard waitFor flow.internalRun(ctxB)
+    check ctxB["process"].getStr() == "B"
+
+  test "Context isolation between flow runs":
+    let node = newNode(
+      exec = proc(ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        ctx["result"] = %"processed"
+        return %"done"
+    )
+    let flow = newFlow(node)
+
+    let ctx1 = newPfContext()
+    ctx1["input"] = %"first"
+    discard waitFor flow.internalRun(ctx1)
+
+    let ctx2 = newPfContext()
+    ctx2["input"] = %"second"
+    discard waitFor flow.internalRun(ctx2)
+
+    # Each context should have its own data
+    check ctx1["input"].getStr() == "first"
+    check ctx2["input"].getStr() == "second"
+    check ctx1["result"].getStr() == "processed"
+    check ctx2["result"].getStr() == "processed"
