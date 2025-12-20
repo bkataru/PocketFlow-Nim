@@ -13,9 +13,6 @@
 nimcache/
 htmldocs/
 
-# Documentation output
-docs/
-
 # Test output files
 tests/*.exe
 tests/*.pdb
