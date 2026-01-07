@@ -33,6 +33,8 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v3
 
@@ -60,10 +62,12 @@ jobs:
           nim doc --outdir:docs src/pocketflow/advanced_nodes.nim
           nim doc --outdir:docs src/pocketflow/persistence.nim
           nim doc --outdir:docs src/pocketflow/benchmark.nim
+          # Create .nojekyll file to fix cp .* error in GitHub Pages action
+          touch docs/.nojekyll
 
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
