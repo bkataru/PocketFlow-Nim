@@ -15,10 +15,13 @@ jobs:
       - name: Setup Nim
         uses: jiro4989/setup-nim-action@v1
         with:
-          nim-version: "2.0.0"
+          nim-version: "stable"
 
       - name: Install dependencies
         run: nimble install -y
+        env:
+          # Skip SSL verification on Windows for now
+          SSL_VERIFICATION: false
 
       - name: Run all tests
         run: nim c -r tests/all_tests.nim

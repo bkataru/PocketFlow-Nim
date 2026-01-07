@@ -13,14 +13,27 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         nim-version: ["2.0.0", "stable"]
+        exclude:
+          # Exclude windows-latest + stable due to SSL library issues
+          - os: windows-latest
+            nim-version: "stable"
 
     steps:
       - uses: actions/checkout@v3
 
       - name: Setup Nim
+        if: matrix.os != 'windows-latest'
         uses: jiro4989/setup-nim-action@v1
         with:
           nim-version: ${{ matrix.nim-version }}
+
+      - name: Setup Nim on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          git clone https://github.com/dom96/choosenim.git
+          cd choosenim
+          .\choosenim.exe ${{ matrix.nim-version }} -y
+          echo "${USERPROFILE}\.nimble\bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: nimble install -y
