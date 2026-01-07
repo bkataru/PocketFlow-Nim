@@ -22,18 +22,9 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Setup Nim
-        if: matrix.os != 'windows-latest'
         uses: jiro4989/setup-nim-action@v1
         with:
           nim-version: ${{ matrix.nim-version }}
-
-      - name: Setup Nim on Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          git clone https://github.com/dom96/choosenim.git
-          cd choosenim
-          .\choosenim.exe ${{ matrix.nim-version }} -y
-          echo "${USERPROFILE}\.nimble\bin" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: nimble install -y
