@@ -1,6 +1,6 @@
 # PocketFlow-Nim
 
-[![CI](https://github.com/yourusername/PocketFlow-Nim/workflows/CI/badge.svg)](https://github.com/yourusername/PocketFlow-Nim/actions)
+[![CI](https://github.com/bkataru/PocketFlow-Nim/workflows/CI/badge.svg)](https://github.com/bkataru/PocketFlow-Nim/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Nim Version](https://img.shields.io/badge/nim-2.0+-blue.svg)](https://nim-lang.org/)
 

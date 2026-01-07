@@ -1,221 +1,226 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PocketFlow-Nim Documentation</title>
-        <link rel="stylesheet" href="nimdoc.out.css" />
-        <style>
-            body {
-                font-family:
-                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                    Oxygen, Ubuntu, sans-serif;
-                max-width: 900px;
-                margin: 0 auto;
-                padding: 2rem;
-                line-height: 1.6;
-            }
-            h1 {
-                color: #1a1a1a;
-                border-bottom: 2px solid #ffc200;
-                padding-bottom: 0.5rem;
-            }
-            h2 {
-                color: #333;
-                margin-top: 2rem;
-            }
-            .module-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-                gap: 1rem;
-                margin-top: 1rem;
-            }
-            .module-card {
-                background: #f8f9fa;
-                border: 1px solid #e9ecef;
-                border-radius: 8px;
-                padding: 1rem;
-                text-decoration: none;
-                color: inherit;
-                transition:
-                    box-shadow 0.2s,
-                    transform 0.2s;
-            }
-            .module-card:hover {
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                transform: translateY(-2px);
-            }
-            .module-card h3 {
-                margin: 0 0 0.5rem 0;
-                color: #1a73e8;
-            }
-            .module-card p {
-                margin: 0;
-                color: #666;
-                font-size: 0.9rem;
-            }
-            .badge {
-                display: inline-block;
-                padding: 0.25rem 0.5rem;
-                border-radius: 4px;
-                font-size: 0.75rem;
-                font-weight: 600;
-                margin-right: 0.5rem;
-            }
-            .badge-core {
-                background: #e3f2fd;
-                color: #1565c0;
-            }
-            .badge-llm {
-                background: #fce4ec;
-                color: #c2185b;
-            }
-            .badge-rag {
-                background: #e8f5e9;
-                color: #2e7d32;
-            }
-            .badge-util {
-                background: #fff3e0;
-                color: #ef6c00;
-            }
-            footer {
-                margin-top: 3rem;
-                padding-top: 1rem;
-                border-top: 1px solid #e9ecef;
-                text-align: center;
-                color: #666;
-                font-size: 0.9rem;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>🚀 PocketFlow-Nim Documentation</h1>
 
-        <p>
-            A powerful, production-ready flow-based agent framework for Nim with
-            advanced LLM integration, RAG capabilities, and comprehensive
-            orchestration features.
-        </p>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PocketFlow-Nim Documentation</title>
+    <link rel="stylesheet" href="nimdoc.out.css" />
+    <style>
+        body {
+            font-family:
+                -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                Oxygen, Ubuntu, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
 
-        <h2>📦 Core Modules</h2>
-        <div class="module-grid">
-            <a href="pocketflow.html" class="module-card">
-                <h3>pocketflow</h3>
-                <span class="badge badge-core">Core</span>
-                <p>Main module that re-exports all PocketFlow functionality</p>
-            </a>
-            <a href="context.html" class="module-card">
-                <h3>context</h3>
-                <span class="badge badge-core">Core</span>
-                <p>Shared context for passing data between nodes in a flow</p>
-            </a>
-            <a href="node.html" class="module-card">
-                <h3>node</h3>
-                <span class="badge badge-core">Core</span>
-                <p>Node, BatchNode, and ParallelBatchNode implementations</p>
-            </a>
-            <a href="flow.html" class="module-card">
-                <h3>flow</h3>
-                <span class="badge badge-core">Core</span>
-                <p>Flow, BatchFlow, and ParallelBatchFlow orchestration</p>
-            </a>
-        </div>
+        h1 {
+            color: #1a1a1a;
+            border-bottom: 2px solid #ffc200;
+            padding-bottom: 0.5rem;
+        }
 
-        <h2>🤖 LLM Integration</h2>
-        <div class="module-grid">
-            <a href="llm.html" class="module-card">
-                <h3>llm</h3>
-                <span class="badge badge-llm">LLM</span>
-                <p>
-                    Multi-provider LLM client (OpenAI, Anthropic, Google,
-                    Ollama)
-                </p>
-            </a>
-            <a href="tokens.html" class="module-card">
-                <h3>tokens</h3>
-                <span class="badge badge-llm">LLM</span>
-                <p>Token counting and cost tracking utilities</p>
-            </a>
-            <a href="cache.html" class="module-card">
-                <h3>cache</h3>
-                <span class="badge badge-llm">LLM</span>
-                <p>LRU caching for LLM responses and embeddings</p>
-            </a>
-        </div>
+        h2 {
+            color: #333;
+            margin-top: 2rem;
+        }
 
-        <h2>📄 RAG Capabilities</h2>
-        <div class="module-grid">
-            <a href="rag.html" class="module-card">
-                <h3>rag</h3>
-                <span class="badge badge-rag">RAG</span>
-                <p>
-                    Document chunking, embeddings, similarity search, and
-                    reranking
-                </p>
-            </a>
-        </div>
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
 
-        <h2>⚡ Advanced Features</h2>
-        <div class="module-grid">
-            <a href="advanced_nodes.html" class="module-card">
-                <h3>advanced_nodes</h3>
-                <span class="badge badge-util">Advanced</span>
-                <p>ConditionalNode, LoopNode, TimeoutNode, MapNode</p>
-            </a>
-            <a href="observability.html" class="module-card">
-                <h3>observability</h3>
-                <span class="badge badge-util">Util</span>
-                <p>Structured logging, metrics, and tracing spans</p>
-            </a>
-            <a href="persistence.html" class="module-card">
-                <h3>persistence</h3>
-                <span class="badge badge-util">Util</span>
-                <p>State capture, save, load, and restore functionality</p>
-            </a>
-            <a href="errors.html" class="module-card">
-                <h3>errors</h3>
-                <span class="badge badge-util">Util</span>
-                <p>Custom exception types for error handling</p>
-            </a>
-            <a href="benchmark.html" class="module-card">
-                <h3>benchmark</h3>
-                <span class="badge badge-util">Util</span>
-                <p>Performance benchmarking utilities</p>
-            </a>
-        </div>
+        .module-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 1rem;
+            text-decoration: none;
+            color: inherit;
+            transition:
+                box-shadow 0.2s,
+                transform 0.2s;
+        }
 
-        <h2>📚 Resources</h2>
-        <ul>
-            <li>
-                <a href="https://github.com/yourusername/PocketFlow-Nim"
-                    >GitHub Repository</a
-                >
-            </li>
-            <li>
-                <a
-                    href="https://github.com/yourusername/PocketFlow-Nim/blob/main/README.md"
-                    >README</a
-                >
-            </li>
-            <li>
-                <a
-                    href="https://github.com/yourusername/PocketFlow-Nim/blob/main/COOKBOOK.md"
-                    >Cookbook</a
-                >
-            </li>
-            <li>
-                <a
-                    href="https://github.com/yourusername/PocketFlow-Nim/tree/main/examples"
-                    >Examples</a
-                >
-            </li>
-        </ul>
+        .module-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
 
-        <footer>
+        .module-card h3 {
+            margin: 0 0 0.5rem 0;
+            color: #1a73e8;
+        }
+
+        .module-card p {
+            margin: 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .badge-core {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .badge-llm {
+            background: #fce4ec;
+            color: #c2185b;
+        }
+
+        .badge-rag {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .badge-util {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🚀 PocketFlow-Nim Documentation</h1>
+
+    <p>
+        A powerful, production-ready flow-based agent framework for Nim with
+        advanced LLM integration, RAG capabilities, and comprehensive
+        orchestration features.
+    </p>
+
+    <h2>📦 Core Modules</h2>
+    <div class="module-grid">
+        <a href="pocketflow.html" class="module-card">
+            <h3>pocketflow</h3>
+            <span class="badge badge-core">Core</span>
+            <p>Main module that re-exports all PocketFlow functionality</p>
+        </a>
+        <a href="context.html" class="module-card">
+            <h3>context</h3>
+            <span class="badge badge-core">Core</span>
+            <p>Shared context for passing data between nodes in a flow</p>
+        </a>
+        <a href="node.html" class="module-card">
+            <h3>node</h3>
+            <span class="badge badge-core">Core</span>
+            <p>Node, BatchNode, and ParallelBatchNode implementations</p>
+        </a>
+        <a href="flow.html" class="module-card">
+            <h3>flow</h3>
+            <span class="badge badge-core">Core</span>
+            <p>Flow, BatchFlow, and ParallelBatchFlow orchestration</p>
+        </a>
+    </div>
+
+    <h2>🤖 LLM Integration</h2>
+    <div class="module-grid">
+        <a href="llm.html" class="module-card">
+            <h3>llm</h3>
+            <span class="badge badge-llm">LLM</span>
             <p>
-                PocketFlow-Nim v0.2.0 | MIT License | Built with ❤️ using
-                <a href="https://nim-lang.org/">Nim</a>
+                Multi-provider LLM client (OpenAI, Anthropic, Google,
+                Ollama)
             </p>
-        </footer>
-    </body>
+        </a>
+        <a href="tokens.html" class="module-card">
+            <h3>tokens</h3>
+            <span class="badge badge-llm">LLM</span>
+            <p>Token counting and cost tracking utilities</p>
+        </a>
+        <a href="cache.html" class="module-card">
+            <h3>cache</h3>
+            <span class="badge badge-llm">LLM</span>
+            <p>LRU caching for LLM responses and embeddings</p>
+        </a>
+    </div>
+
+    <h2>📄 RAG Capabilities</h2>
+    <div class="module-grid">
+        <a href="rag.html" class="module-card">
+            <h3>rag</h3>
+            <span class="badge badge-rag">RAG</span>
+            <p>
+                Document chunking, embeddings, similarity search, and
+                reranking
+            </p>
+        </a>
+    </div>
+
+    <h2>⚡ Advanced Features</h2>
+    <div class="module-grid">
+        <a href="advanced_nodes.html" class="module-card">
+            <h3>advanced_nodes</h3>
+            <span class="badge badge-util">Advanced</span>
+            <p>ConditionalNode, LoopNode, TimeoutNode, MapNode</p>
+        </a>
+        <a href="observability.html" class="module-card">
+            <h3>observability</h3>
+            <span class="badge badge-util">Util</span>
+            <p>Structured logging, metrics, and tracing spans</p>
+        </a>
+        <a href="persistence.html" class="module-card">
+            <h3>persistence</h3>
+            <span class="badge badge-util">Util</span>
+            <p>State capture, save, load, and restore functionality</p>
+        </a>
+        <a href="errors.html" class="module-card">
+            <h3>errors</h3>
+            <span class="badge badge-util">Util</span>
+            <p>Custom exception types for error handling</p>
+        </a>
+        <a href="benchmark.html" class="module-card">
+            <h3>benchmark</h3>
+            <span class="badge badge-util">Util</span>
+            <p>Performance benchmarking utilities</p>
+        </a>
+    </div>
+
+    <h2>📚 Resources</h2>
+    <ul>
+        <li>
+            <a href="https://github.com/bkataru/PocketFlow-Nim">GitHub Repository</a>
+        </li>
+        <li>
+            <a href="https://github.com/bkataru/PocketFlow-Nim/blob/main/README.md">README</a>
+        </li>
+        <li>
+            <a href="https://github.com/bkataru/PocketFlow-Nim/blob/main/COOKBOOK.md">Cookbook</a>
+        </li>
+        <li>
+            <a href="https://github.com/bkataru/PocketFlow-Nim/tree/main/examples">Examples</a>
+        </li>
+    </ul>
+
+    <footer>
+        <p>
+            PocketFlow-Nim v0.2.0 | MIT License | Built with ❤️ using
+            <a href="https://nim-lang.org/">Nim</a>
+        </p>
+    </footer>
+</body>
+
 </html>

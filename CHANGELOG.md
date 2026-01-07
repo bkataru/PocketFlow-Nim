@@ -71,6 +71,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-[Unreleased]: https://github.com/yourusername/PocketFlow-Nim/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/yourusername/PocketFlow-Nim/releases/tag/v0.2.0
-[0.1.0]: https://github.com/yourusername/PocketFlow-Nim/releases/tag/v0.1.0
+[Unreleased]: https://github.com/bkataru/PocketFlow-Nim/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/bkataru/PocketFlow-Nim/releases/tag/v0.2.0
+[0.1.0]: https://github.com/bkataru/PocketFlow-Nim/releases/tag/v0.1.0
