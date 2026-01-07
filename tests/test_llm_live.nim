@@ -132,27 +132,28 @@ suite "LLM Client - Live Ollama Tests":
 
   test "Integration with Node":
     # Test using LLM client within a PocketFlow node
-    # Store the client in context to avoid closure capture issues
     var ctx = newPfContext()
+    
+    # Create client outside the node to avoid GC-safety issues in callbacks
     let client = newLlmClient(provider = Ollama, model = TEST_MODEL)
     defer: client.close()
     
-    # Store client reference in params instead of closure capture
     var llmNode = newNode(
-      prep = proc (ctx: PfContext, params: JsonNode): Future[JsonNode] {.async.} =
+      prep = proc (ctx: PfContext, params: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
         # Just pass through the prompt
         return params
       ,
-      exec = proc (ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async.} =
-        # Use a fresh client for this execution to avoid GC-safety issues
-        let execClient = newLlmClient(provider = Ollama, model = TEST_MODEL)
-        defer: execClient.close()
-        
-        let prompt = prepRes["prompt"].getStr()
-        let response = await execClient.generate(prompt, temperature = 0.1)
-        return %* response
+      exec = proc (ctx: PfContext, params: JsonNode, prepRes: JsonNode): Future[JsonNode] {.async, closure, gcsafe.} =
+        # Use {.cast(gcsafe).} to allow calling non-gcsafe code in test context
+        {.cast(gcsafe).}:
+          let execClient = newLlmClient(provider = Ollama, model = TEST_MODEL)
+          defer: execClient.close()
+          
+          let prompt = prepRes["prompt"].getStr()
+          let response = await execClient.generate(prompt, temperature = 0.1)
+          return %* response
       ,
-      post = proc (ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async.} =
+      post = proc (ctx: PfContext, params: JsonNode, prepRes: JsonNode, execRes: JsonNode): Future[string] {.async, closure, gcsafe.} =
         ctx["llm_response"] = execRes
         return DefaultAction
     )
