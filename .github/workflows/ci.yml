@@ -11,11 +11,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-2022, macos-latest]
         nim-version: ["2.0.0", "stable"]
         exclude:
-          # Exclude windows-latest + stable due to SSL library issues
-          - os: windows-latest
+          # Exclude Windows + stable due to SSL library issues with choosenim
+          - os: windows-2022
             nim-version: "stable"
 
     steps:
