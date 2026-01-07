@@ -11,20 +11,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-2022, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         nim-version: ["2.0.0", "stable"]
-        exclude:
-          # Exclude Windows + stable due to SSL library issues with choosenim
-          - os: windows-2022
-            nim-version: "stable"
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Nim
-        uses: jiro4989/setup-nim-action@v1
+        uses: jiro4989/setup-nim-action@v2
         with:
           nim-version: ${{ matrix.nim-version }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: nimble install -y
@@ -40,12 +37,13 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Nim
-        uses: jiro4989/setup-nim-action@v1
+        uses: jiro4989/setup-nim-action@v2
         with:
           nim-version: "stable"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install dependencies
         run: nimble install -y
@@ -79,12 +77,13 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Nim
-        uses: jiro4989/setup-nim-action@v1
+        uses: jiro4989/setup-nim-action@v2
         with:
           nim-version: "stable"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check formatting
         run: |
