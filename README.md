@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Nim Version](https://img.shields.io/badge/nim-2.0+-blue.svg)](https://nim-lang.org/)
 
-A powerful, production-ready flow-based agent framework for Nim with advanced LLM integration, RAG capabilities, and comprehensive orchestration features.
+A Nim implementation of PocketFlow, a minimalist flow-based agent programming framework with LLM integration, RAG capabilities, and orchestration features for building LLM-powered workflows.
 
 ## ✨ Features
 

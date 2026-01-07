@@ -2,7 +2,7 @@
 
 version       = "0.2.0"
 author        = "PocketFlow Contributors"
-description   = "A minimalist flow-based agent framework with LLM integration, RAG capabilities, and advanced orchestration"
+description   = "A minimalist flow-based agent programming framework with LLM integration, RAG capabilities, and orchestration features"
 license       = "MIT"
 srcDir        = "src"
 
